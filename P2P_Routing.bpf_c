@@ -1,0 +1,62 @@
+#include <uapi/linux/bpf.h>
+#include <uapi/linux/if_ether.h>
+#include <uapi/linux/ip.h>
+#include <uapi/linux/if_packet.h>
+#include <uapi/linux/if_vlan.h>
+/* This program is also written in C and can be compiled with BCC. It uses the XDP (eXpress Data Path)
+   hook to intercept packets at the earliest point in the network stack, and 
+   takes two arguments: the source IP address and the destination IP address.
+*/
+// To compile: clang -O2 -target bpf -c P2P_Routing.bpf_c -o P2P_Routing.o
+// To Load the BPF Object into the Kernel: ip link set dev <interface> xdp obj P2P_Routing.o sec on_packet
+// To Use bpftool:  bpftool prog load my_program.o /sys/fs/bpf/my_program \
+//    --sec on_packet \
+//    --map-in-file routing_table /path/to/routing_table.txt \
+//    --map-in-file SRC_IP value 0x12345678 \          (change the IPv4 address to its hex eqivalent)
+//    --map-in-file DST_IP value 0x87654321
+
+// ToDo: write a python wrapper to load and unload the program/module
+//
+
+// Define the source and destination IP addresses as global variables
+u32 SRC_IP, DST_IP;
+
+int on_packet(struct xdp_md *ctx) {
+    void* data = (void*)(long)ctx->data;
+    void* data_end = (void*)(long)ctx->data_end;
+
+    struct ethhdr *eth = data;
+    if (eth + 1 > data_end) {
+        return XDP_DROP;
+    }
+
+    if (eth->h_proto != htons(ETH_P_IP)) {
+        return XDP_PASS;
+    }
+
+    struct iphdr *ip = data + sizeof(struct ethhdr);
+    if (ip + 1 > data_end) {
+        return XDP_DROP;
+    }
+
+    // Check if the packet matches the source and destination IP addresses
+    if (ip->saddr != SRC_IP || ip->daddr != DST_IP) {
+        return XDP_PASS;
+    }
+
+    // Update the destination IP address and recalculate the IP header checksum
+    ip->daddr = DST_IP;
+    ip->check = 0;
+    ip->check = ip_fast_csum((unsigned char *)ip, ip->ihl);
+
+    // Update the destination MAC address and VLAN tag (if present)
+    // Note: you would need to provide the correct out_ifindex and new_eth->h_dest values
+    struct ethhdr *new_eth = data;
+    struct vlan_hdr *vlan = (struct vlan_hdr *)(eth + 1);
+    if (eth->h_proto == htons(ETH_P_8021Q)) {
+        new_eth = (struct ethhdr *)(vlan + 1);
+        vlan->h_vlan_TCI = htons(out_ifindex);
+    }
+    bpf_xdp_update_elem(ctx, out_ifindex, new_eth->h_dest, sizeof(new_eth->h_dest));
+    return XDP_TX;
+}
