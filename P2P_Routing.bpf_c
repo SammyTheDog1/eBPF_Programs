@@ -9,7 +9,7 @@
 */
 // To compile: clang -O2 -target bpf -c P2P_Routing.bpf_c -o P2P_Routing.o
 // To Load the BPF Object into the Kernel: ip link set dev <interface> xdp obj P2P_Routing.o sec on_packet
-// To Use bpftool:  bpftool prog load my_program.o /sys/fs/bpf/my_program \
+// To Use bpftool:  bpftool prog load P2P_Routing.o /sys/fs/bpf/P2P_Routing \
 //    --sec on_packet \
 //    --map-in-file routing_table /path/to/routing_table.txt \
 //    --map-in-file SRC_IP value 0x12345678 \          (change the IPv4 address to its hex eqivalent)
