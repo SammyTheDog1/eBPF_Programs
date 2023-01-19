@@ -3,7 +3,7 @@
 #include <uapi/linux/ip.h>
 #include <uapi/linux/if_packet.h>
 #include <uapi/linux/if_vlan.h>
-/* This program is also written in C and can be compiled with BCC. It uses the XDP (eXpress Data Path)
+/* This program is written in C and can be compiled with BCC. It uses the XDP (eXpress Data Path)
    hook to intercept packets at the earliest point in the network stack, and 
    takes two arguments: the source IP address and the destination IP address.
 */
